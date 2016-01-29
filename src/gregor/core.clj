@@ -1,6 +1,5 @@
 (ns gregor.core
-  (:require [cheshire.core :as json]
-            [clojure.core.async :refer [<! >! <!! >!! chan go-loop put! close!]]
+  (:require [clojure.core.async :refer [<! >! <!! >!! chan go-loop put! close!]]
             [taoensso.timbre :as timbre])
   (:import [java.util Properties Arrays ArrayList]
            [org.apache.kafka.clients.consumer KafkaConsumer ConsumerRecords ConsumerRecord]
@@ -165,4 +164,4 @@
 ;;       (run! println msgs))))
 
 ;; (new-producer)
-;; (send-message prod "test" (json/generate-string {:a 1}))
+;; (send-message prod "test" {:a 1})
