@@ -9,7 +9,7 @@
 
 
 (deftest producing
-  (testing "record->map and send-message")
+  (testing "consumer-record->map and send-message")
   (let [p (MockProducer. true (StringSerializer.) (StringSerializer.))]
     (send-message p "unittest" {:a 1 :b "two"})
     (let [values (.history p)]
@@ -20,12 +20,11 @@
       (.close p))))
 
 (deftest consuming
-  (testing "messages-seq")
-  (let [topics ["unittest"]
-        tp (TopicPartition. "unittest" 0)
-        c (doto (MockConsumer. (OffsetResetStrategy/EARLIEST))
-            (.assign [tp])
-            (.updateBeginningOffsets {(TopicPartition. "unittest" 0) 0})
+  (testing "messages, topic-partition")
+  (let [c (MockConsumer. (OffsetResetStrategy/EARLIEST))
+        _ (assign! c "unittest" 0)
+        c (doto c
+            (.updateBeginningOffsets {(topic-partition "unittest" 0) 0})
             (.addRecord (ConsumerRecord. "unittest" 0 0 0 {:a 1}))
             (.addRecord (ConsumerRecord. "unittest" 0 0 0 {:b 2})))
         ms (messages c)]
@@ -33,4 +32,15 @@
            (-> ms (first) (first) (:value))))
     (is (= {:b 2}
            (-> ms (first) (second) (:value))))))
+
+
+;; (deftest commit
+;;   (let [c (MockConsumer. (OffsetResetStrategy/EARLIEST))
+;;         _ (assign! c "unittest" 0)
+;;         c (doto c
+;;             (.updateBeginningOffsets {(topic-partition "unittest" 0) 0})
+;;             (.addRecord (ConsumerRecord. "unittest" 0 0 0 {:a 1})))
+;;         ms (take 1 (messages c))]
+;;     (commit-offsets! c)
+;;     (is (= (offset-and-metadata 0) (.committed c (topic-partition "unittest" 0))))))
 
