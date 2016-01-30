@@ -16,8 +16,7 @@
       (is (= {:a 1 :b "two"}
              (-> values
                  (first)
-                 (record->map)
-                 (:value))))
+                 (.value))))
       (.close p))))
 
 (deftest consuming
@@ -29,7 +28,7 @@
             (.updateBeginningOffsets {(TopicPartition. "unittest" 0) 0})
             (.addRecord (ConsumerRecord. "unittest" 0 0 0 {:a 1}))
             (.addRecord (ConsumerRecord. "unittest" 0 0 0 {:b 2})))
-        ms (messages-seq c)]
+        ms (messages c)]
     (is (= {:a 1}
            (-> ms (first) (first) (:value))))
     (is (= {:b 2}
