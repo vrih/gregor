@@ -5,6 +5,24 @@
            [org.apache.kafka.clients.producer Producer KafkaProducer
             ProducerRecord]))
 
+;; TODO: OffsetCommitCallback impl / reify?
+;; committed (test)
+;; listTopics
+;; pause
+;; position
+;; resume 
+;; subscribe
+;; unsubscribe
+;; wakeup
+;; producer stuff
+
+;; clojurify java objects returned by fns, e.g. committed ?
+
+;; Not doing:
+;; metrics
+;; partitionsFor
+
+
 (defn- as-properties
   [m]
   (let [ps (java.util.Properties.)]
@@ -12,14 +30,14 @@
     ps))
 
 (defn topic-partition
+  "A topic name and partition number."
   [^String topic ^Integer partition]
   (TopicPartition. topic partition))
 
 (defn offset-and-metadata
-  [^Long offset & metadata]
-  (if metadata
-    (OffsetAndMetadata. offset metadata)
-    (OffsetAndMetadata. offset)))
+  "Metadata for when an offset is committed."
+  ([^Long offset] (OffsetAndMetadata. offset))
+  ([^Long offset ^String metadata] (OffsetAndMetadata. offset metadata)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Kafka Consumer
@@ -70,10 +88,31 @@
 
 (defn assign!
   "Manually assign topic-partition pairs to this consumer."
-  [^Consumer consumer topic partition & topic-partitions]
+  [^Consumer consumer ^String topic ^Integer partition & topic-partitions]
   (let [msg "assign! expects even number of args after partition, found odd number."
         tps (vectorize msg topic partition topic-partitions)]
     (.assign consumer tps)))
+
+(defn assignment
+  "Get the set of partitions currently assigned to this consumer."
+  [^Consumer consumer]
+  (set (.assignment consumer)))
+
+(defn subscription
+  "Get the current subscription for this consumer."
+  [^Consumer consumer]
+  (set (.subscription consumer)))
+
+(defn close
+  "Close the consumer, waiting indefinitely for any needed cleanup."
+  [^Consumer consumer]
+  (.close consumer))
+
+(defn committed
+  "Get the last committed offset for the given partition."
+  ^OffsetAndMetadata
+  [^Consumer consumer ^String topic ^Integer partition]
+  (.committed consumer (topic-partition topic partition)))
 
 (defn commit-offsets-async!
   "Commit offsets returned on the last poll for all the subscribed list of
@@ -120,14 +159,14 @@
   Must not be negative."
   ([consumer] (poll consumer 100))
   ([consumer timeout]
-   ;; (trace "poll consumer for messages with" timeout "ms timeout")
    (->> (.poll consumer timeout)
         (map consumer-record->map)
         (seq))))
 
 (defn messages
-  "Return a lazy sequence of messages from the consumer. Each element is the seq
-  of messages currently available.
+  "Return a lazy sequence of messages by polling the consumer. Each element is
+  the seq of messages currently available. Fetches sequetially from the last
+  consumed offset.
 
   timeout - the time, in milliseconds, spent waiting in poll if data is not
   available. If 0, returns immediately with any records that are available now.
@@ -137,7 +176,7 @@
 
     (let [msgs (messages my-consumer)]
       (when msgs
-        (run! println msgs))))
+        (run! some-func! msgs))))
   "
   ([^Consumer consumer] (messages consumer 100))
   ([^Consumer consumer timeout] (repeatedly #(poll consumer timeout))))
@@ -168,13 +207,7 @@
   "Returns a java.util.ConcurrentFuture."
   [^Producer producer topic value]
   (let [pr (ProducerRecord. topic value)]
-    ;; (debug "send (" (.topic pr) ":" (.partition pr) ") message" (.value pr))
     (.send producer pr)))
-
-
-;; (defn topic-partition
-;;   [topic partition]
-;;   (TopicPartition. topic partition))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

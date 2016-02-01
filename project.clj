@@ -8,5 +8,6 @@
                  [org.apache.kafka/kafka_2.10 "0.9.0.0"]
                  [prismatic/schema "0.4.3"]]
   :main ^:skip-aot gregor.core
+  :plugins [[lein-codox "0.9.1"]]
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
