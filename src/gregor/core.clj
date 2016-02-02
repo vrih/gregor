@@ -7,6 +7,7 @@
 
 ;; TODO: OffsetCommitCallback impl / reify?
 ;; committed (test)
+;; commit-offsets (test)
 ;; listTopics
 ;; pause
 ;; position
@@ -115,8 +116,7 @@
   (.committed consumer (topic-partition topic partition)))
 
 (defn commit-offsets-async!
-  "Commit offsets returned on the last poll for all the subscribed list of
-  topics and partition."
+  "Commit offsets returned by the last poll for all subscribed topics and partitions."
   ([^Consumer consumer] (.commitAsync consumer))
   ([^Consumer consumer ^OffsetCommitCallback callback]
    (.commitAsync consumer callback))
@@ -124,11 +124,19 @@
    (.commitAsync consumer offsets callback)))
 
 (defn commit-offsets!
-  "Commit offsets returned on the last poll for all the subscribed list of
-  topics and partition.
-  offsets - a map of offsets by partition with associated metadata."
+  "Commit offsets returned by the last poll for all subscribed topics and partitions.
+
+  offsets - commit the specified offsets for the specified topics and partitions by providing a seq
+  of vectors of the form [topic partition offset metadata], e.g.
+
+    [[\"my-topic\" 0 307 \"my metadata string\"]
+     [\"other-topic\" 1 231 \"other metadata string\"]]
+  "
   ([^Consumer consumer] (.commitSync consumer))
-  ([^Consumer consumer offsets] (.commitSync consumer offsets)))
+  ([^Consumer consumer offsets]
+   (let [m (into {} (for [[t p off met] offsets]
+                      [(topic-partition t p) (offset-and-metadata off met)]))]
+     (.commitSync consumer m))))
 
 (defn seek!
   "Overrides the fetch offsets that the consumer will use on the next poll."
