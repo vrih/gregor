@@ -56,3 +56,4 @@
 ;;     (commit-offsets! c)
 ;;     (is (= (offset-and-metadata 0) (.committed c (topic-partition "unittest" 0))))))
 
+
