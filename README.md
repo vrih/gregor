@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # gregor
 
 A Clojure library for Kafka 0.9+
@@ -17,3 +18,10 @@ A Clojure library for Kafka 0.9+
       msgs (messages c)]
   (run! do-something! msgs))
 ```
+=======
+# Gregor
+
+A Clojure library for Kafka 0.9+
+
+
+>>>>>>> bf904563937b35eabbf010c5e4b304ff9d91126a
