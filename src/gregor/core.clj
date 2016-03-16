@@ -3,7 +3,8 @@
            [org.apache.kafka.clients.consumer Consumer KafkaConsumer
             ConsumerRecords ConsumerRecord OffsetAndMetadata OffsetCommitCallback]
            [org.apache.kafka.clients.producer Producer KafkaProducer
-            ProducerRecord]))
+            ProducerRecord])
+  (:require [clojure.string :as str]))
 
 ;; TODO: OffsetCommitCallback impl / reify?
 ;; committed (test)
@@ -23,6 +24,8 @@
 ;; metrics
 ;; partitionsFor
 
+(def str-deserializer "org.apache.kafka.common.serialization.StringDeserializer")
+(def str-serializer "org.apache.kafka.common.serialization.StringSerializer")
 
 (defn- as-properties
   [m]
@@ -67,25 +70,30 @@
 (defn consumer
   "Return a KafkaConsumer.
 
-  Set the list of topics to subscribe to dynamically via the topics argument.
+  Args:
+    servers: comma-separated host:port strs or list of strs as bootstrap servers
+    group-id: str that identifies the consumer group this consumer belongs to
+    topics: an optional list of topics to which the consumer will be dynamically
+            subscribed.
+    config: an optional map of str to str containing additional consumer
+            configuration. More info on optional config is available here:
+            http://kafka.apache.org/documentation.html#newconsumerconfigs
 
-  More info on settings is available here:
-  http://kafka.apache.org/documentation.html#newconsumerconfigs
-
-  Required config keys:
-    bootstrap.servers      : host1:port1,host2:port2
-    key.deserializer       : e.g. org.apache.kafka.common.serialization.StringDeserializer
-    value.deserializer     : e.g. org.apache.kafka.common.serialization.StringDeserializer"
+  The StringDeserializer class is the default for both key.deserializer and
+  value.deserializer.
+  "
   ^KafkaConsumer
-  ([config] (consumer [] ""))
-  ([config topics group-id]
-   (let [kc (-> config
-                (assoc "group.id" group-id)
+  [servers group-id & [topics config]]
+  (let [servers (if (sequential? servers) (str/join "," servers) servers)
+         kc (-> config
+                (assoc "group.id" group-id
+                       "bootstrap.servers" servers
+                       "key.deserializer" str-deserializer
+                       "value.deserializer" str-deserializer)
                 (as-properties)
                 (KafkaConsumer.))]
-     (when (not-empty topics)
-       (.subscribe kc topics))
-     kc)))
+     (when (not-empty topics) (.subscribe kc topics))
+     kc))
 
 (defn assign!
   "Manually assign topic-partition pairs to this consumer."
@@ -105,9 +113,9 @@
   (set (.subscription consumer)))
 
 (defn close
-  "Close the consumer, waiting indefinitely for any needed cleanup."
-  [^Consumer consumer]
-  (.close consumer))
+  "Close the consumer or producer, waiting indefinitely for any needed cleanup."
+  [^java.io.Closeable closable]
+  (.close closable))
 
 (defn committed
   "Get the last committed offset for the given partition."
@@ -159,9 +167,12 @@
   (.position (topic-partition topic partition)))
 
 (defn poll
-  "Return a seq of messages currently available to the consumer (via a single poll).
+  "Return a seq of consumer records currently available to the consumer (via a single poll).
   Fetches sequetially from the last consumed offset.
 
+  A consumer record is represented as a clojure map with corresponding keys :value, :key,
+  :partition, :topic, :offset
+  
   timeout - the time, in milliseconds, spent waiting in poll if data is not
   available. If 0, returns immediately with any records that are available now.
   Must not be negative."
@@ -171,22 +182,19 @@
         (map consumer-record->map)
         (seq))))
 
-(defn messages
-  "Return a lazy sequence of messages by polling the consumer. Each element is
-  the seq of messages currently available. Fetches sequetially from the last
-  consumed offset.
+(defn records
+  "Return a lazy sequence of sequences of consumer-records by polling the consumer.
+
+  Each element in the returned sequence is the seq of consumer records returned from a
+  poll by the consumer. The consumer fetches sequetially from the last consumed offset.
+
+  A consumer record is represented as a clojure map with corresponding keys :value, :key,
+  :partition, :topic, :offset
 
   timeout - the time, in milliseconds, spent waiting in poll if data is not
   available. If 0, returns immediately with any records that are available now.
-  Must not be negative.
-
-  Recommended for use with doseq or run!:
-
-    (let [msgs (messages my-consumer)]
-      (when msgs
-        (run! some-func! msgs))))
-  "
-  ([^Consumer consumer] (messages consumer 100))
+  Must not be negative."
+  ([^Consumer consumer] (records consumer 100))
   ([^Consumer consumer timeout] (repeatedly #(poll consumer timeout))))
 
 
@@ -200,18 +208,26 @@
   The producer is thread safe and sharing a single producer instance across
   threads will generally be faster than having multiple instances.
 
+  Args:
+    servers: comma-separated host:port strs or list of strs as bootstrap servers
+    config: an optional map of str to str containing additional producer
+            configuration. More info on optional config is available here:
+            http://kafka.apache.org/documentation.html#newconsumerconfigs
+
+  The StringSerializer class is the default for both key.serializer and value.serializer
+
   More info on settings is available here:
-  http://kafka.apache.org/documentation.html#producerconfigs
-
-  Required config keys:
-    bootstrap.servers      : host1:port1,host2:port2
-    key.deserializer       : e.g. org.apache.kafka.common.serialization.StringDeserializer
-    value.deserializer     : e.g. org.apache.kafka.common.serialization.StringDeserializer"
+  http://kafka.apache.org/081/documentation.html#producerconfigs"
   ^KafkaProducer
-  [config]
-  (KafkaProducer. (as-properties config)))
+  [servers & [config]]
+  (-> config
+      (assoc "bootstrap.servers" servers
+             "key.serializer" str-serializer
+             "value.serializer" str-serializer)
+      (as-properties)
+      (KafkaProducer.)))
 
-(defn send-message
+(defn send-record
   "Returns a java.util.ConcurrentFuture."
   [^Producer producer topic value]
   (let [pr (ProducerRecord. topic value)]
