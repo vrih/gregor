@@ -1,28 +1,12 @@
 (ns gregor.core
   (:import [org.apache.kafka.common TopicPartition]
-           [org.apache.kafka.clients.consumer Consumer KafkaConsumer
-            ConsumerRecords ConsumerRecord OffsetAndMetadata OffsetCommitCallback]
-           [org.apache.kafka.clients.producer Producer KafkaProducer
+           [org.apache.kafka.clients.consumer Consumer KafkaConsumer ConsumerRecords
+            ConsumerRecord OffsetAndMetadata OffsetCommitCallback
+            ConsumerRebalanceListener]
+           [org.apache.kafka.clients.producer Producer KafkaProducer Callback
             ProducerRecord])
   (:require [clojure.string :as str]))
 
-;; TODO: OffsetCommitCallback impl / reify?
-;; committed (test)
-;; commit-offsets (test)
-;; listTopics
-;; pause
-;; position
-;; resume 
-;; subscribe
-;; unsubscribe
-;; wakeup
-;; producer stuff
-
-;; clojurify java objects returned by fns, e.g. committed ?
-
-;; Not doing:
-;; metrics
-;; partitionsFor
 
 (def str-deserializer "org.apache.kafka.common.serialization.StringDeserializer")
 (def str-serializer "org.apache.kafka.common.serialization.StringSerializer")
@@ -35,6 +19,7 @@
 
 (defn topic-partition
   "A topic name and partition number."
+  ^TopicPartition
   [^String topic ^Integer partition]
   (TopicPartition. topic partition))
 
@@ -42,10 +27,6 @@
   "Metadata for when an offset is committed."
   ([^Long offset] (OffsetAndMetadata. offset))
   ([^Long offset ^String metadata] (OffsetAndMetadata. offset metadata)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Kafka Consumer
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- vectorize
   [msg t p & tps]
@@ -66,6 +47,39 @@
    :partition (.partition record)
    :topic (.topic record)
    :offset (.offset record)})
+
+
+(defn- reify-crl
+  [assigned-cb revoked-cb]
+  (reify ConsumerRebalanceListener
+    (onPartitionsAssigned [this partitions]
+      (assigned-cb partitions))
+    (onPartitionsRevoked [this partitions]
+      (revoked-cb partitions))))
+
+(defn subscribe
+  "Subscribe to the given list of topics to get dynamically assigned partitions. Topic
+  subscriptions are not incremental. This list will replace the current assignment (if
+  there is one). It is not possible to combine topic subscription with group management
+  with manual partition assignment through assign(List). If the given list of topics is
+  empty, it is treated the same as unsubscribe.
+
+  topics-or-regex can be a list of topic names or a java.util.regex.Pattern object to
+  subscribe to all topics matching a specified pattern.
+
+  the optional functions are a callback interface to trigger custom actions when the set
+  of partitions assigned to the consumer changes.
+  "
+  [^Consumer consumer topics-or-regex & [partitions-assigned-fn partitions-revoked-fn]]
+  (.subscribe consumer topics-or-regex
+              (reify-crl partitions-assigned-fn partitions-revoked-fn)))
+
+(defn unsubscribe
+  "Unsubscribe from topics currently subscribed with subscribe. This also clears any
+  partitions directly assigned through assign."
+  [^Consumer consumer]
+  (.unsubscribe consumer))
+
 
 (defn consumer
   "Return a KafkaConsumer.
@@ -92,7 +106,7 @@
                        "value.deserializer" str-deserializer)
                 (as-properties)
                 (KafkaConsumer.))]
-     (when (not-empty topics) (.subscribe kc topics))
+    (when (not-empty topics) (subscribe kc topics))
      kc))
 
 (defn assign!
@@ -118,53 +132,90 @@
   (.close closable))
 
 (defn committed
-  "Get the last committed offset for the given partition."
+  "Return OffsetAndMetadata of the last committed offset for the given partition. This
+  offset will be used as the position for the consumer in the event of a failure."
   ^OffsetAndMetadata
   [^Consumer consumer ^String topic ^Integer partition]
   (.committed consumer (topic-partition topic partition)))
 
+(defn- reify-occ
+  [cb]
+  (reify OffsetCommitCallback
+    (onComplete [this offsets-map ex]
+      (cb offsets-map ex))))
+
 (defn commit-offsets-async!
-  "Commit offsets returned by the last poll for all subscribed topics and partitions."
+ "Commit offsets returned by the last poll for all subscribed topics and partitions,
+  or manually specify offsets to commit.
+
+  This is an asynchronous call and will not block. Any errors encountered are either
+  passed to the callback (if provided) or discarded.
+  
+  offsets (optional) - commit a map of offsets by partition with associate metadata.
+  e.g. {(topic-partition 'my-topic' 1) (offset-and-metadata 1)
+        (topic-partition 'other-topic' 2) (offset-and-metadata 67 'such meta')}
+
+  The committed offset should be the next message your application will consume,
+  i.e. lastProcessedMessageOffset + 1.
+
+  This map will be copied internally, so it is safe to mutate the map after returning."
   ([^Consumer consumer] (.commitAsync consumer))
-  ([^Consumer consumer ^OffsetCommitCallback callback]
-   (.commitAsync consumer callback))
-  ([^Consumer consumer offsets ^OffsetCommitCallback callback]
-   (.commitAsync consumer offsets callback)))
+  ([^Consumer consumer callback]
+   (.commitAsync consumer (reify-occ callback)))
+  ([^Consumer consumer offsets callback]
+   (.commitAsync consumer offsets (reify-occ callback))))
 
 (defn commit-offsets!
   "Commit offsets returned by the last poll for all subscribed topics and partitions.
 
-  offsets - commit the specified offsets for the specified topics and partitions by providing a seq
-  of vectors of the form [topic partition offset metadata], e.g.
-
-    [[\"my-topic\" 0 307 \"my metadata string\"]
-     [\"other-topic\" 1 231 \"other metadata string\"]]
+  offsets (optional) - commit a map of offsets by partition with associated metadata.
+  e.g. {(topic-partition 'my-topic' 1) (offset-and-metadata 1)
+        (topic-partition 'other-topic' 2) (offset-and-metadata 67 'so metadata')}
   "
   ([^Consumer consumer] (.commitSync consumer))
   ([^Consumer consumer offsets]
    (let [m (into {} (for [[t p off met] offsets]
-                      [(topic-partition t p) (offset-and-metadata off met)]))]
+                      [(topic-partition t p)
+                       (offset-and-metadata off met)]))]
      (.commitSync consumer m))))
 
 (defn seek!
   "Overrides the fetch offsets that the consumer will use on the next poll."
-  [consumer topic partition offset]
+  [^Consumer consumer topic partition offset]
   (.seek consumer (topic-partition topic partition) offset))
 
 (defn seek-to!
-  "Seek to the :first or :last offset for each of the given partitions."
+  "Seek to the :beginning or :end offset for each of the given partitions."
   [consumer destination topic partition & topic-partitions]
+  (assert (contains? #{:beginning :end} destination) "destination must be :beginning or :end")
   (let [msg "seek-to expects even number of args after partition, found odd number."
-        tps (vectorize msg topic partition topic-partitions)]
-    (case destination
-      :first (.seekToBeginning consumer tps)
-      :last (.seekToEnd consumer tps))))
+        tps (into-array TopicPartition (vectorize msg topic partition topic-partitions))]
+    (if (= destination :beginning)
+      (.seekToBeginning consumer tps)
+      (.seekToEnd consumer tps))))
 
 (defn position
-  "Return the offset of the next record that will be fetched (if a record with
-  that offset exists)."
-  [topic partition]
-  (.position (topic-partition topic partition)))
+  "Return the offset of the next record that will be fetched (if a record with that
+  offset exists)."
+  [^Consumer consumer topic partition]
+  (.position consumer (topic-partition topic partition)))
+
+(defn pause
+  "Suspend fetching for a seq of topic name, partition number pairs."
+  [^Consumer consumer topic-partitions]
+  (.pause consumer (mapv #(apply topic-partition %) topic-partitions)))
+
+(defn resume
+  "Resume fetching for a seq of topic name, partition number pairs."
+  [^Consumer consumer topic-partitions]
+  (.pause consumer (mapv #(apply topic-partition %) topic-partitions)))
+
+(defn wakeup
+  "Wakeup the consumer. This method is thread-safe and is useful in particular to abort a
+  long poll. The thread which is blocking in an operation will throw WakeupException."
+  [^Consumer consumer]
+  (.wakeup consumer))
+
 
 (defn poll
   "Return a seq of consumer records currently available to the consumer (via a single poll).
@@ -198,10 +249,6 @@
   ([^Consumer consumer timeout] (repeatedly #(poll consumer timeout))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Kafka Producer
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defn producer
   "Return a KafkaProducer.
 
@@ -227,43 +274,19 @@
       (as-properties)
       (KafkaProducer.)))
 
-(defn send-record
-  "Returns a java.util.ConcurrentFuture."
-  [^Producer producer topic value]
+(defn send
+  "Asynchronously send a record to a topic, return a java.util.concurrent.Future"
+  [^Producer producer topic value & [callback]]
   (let [pr (ProducerRecord. topic value)]
-    (.send producer pr)))
+    (if callback
+      (.send producer pr (reify Callback
+                           (onCompletion [this metadata ex]
+                             (callback metadata ex))))
+      (.send producer pr))))
 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Live testing
-
-;; (defn new-consumer
-;;   []
-;;   (let [conf {"bootstrap.servers" "localhost:9092"
-;;               "group.id" "wuuut"
-;;               "enable.auto.commit" "false"
-;;               "key.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"
-;;               "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"}]
-;;     (def con (consumer conf ["test"]))))
-
-
-;; (defn new-producer
-;;   []
-;;   (let [config {"bootstrap.servers" "localhost:9092"
-;;                 "acks" "all"
-;;                 "retries" "0"
-;;                 "batch.size" "16384"
-;;                 "linger.ms" "1"
-;;                 "buffer.memory" "33554432"
-;;                 "key.serializer" "org.apache.kafka.common.serialization.StringSerializer"
-;;                 "value.serializer" "org.apache.kafka.common.serialization.StringSerializer"}]
-;;     (def prod (producer config))))
-
-;; (defn start-consuming
-;;   []
-;;   (let [msgs (messages-seq con 100)]
-;;     (when msgs
-;;       (run! println msgs))))
-
-;; (new-producer)
-;; (send-message prod "test" {:a 1})
+(defn flush
+  "Invoking this method makes all buffered records immediately available to send (even if
+  linger.ms is greater than 0) and blocks on the completion of the requests associated
+  with these records."
+  [^Producer producer]
+  (.flush producer))

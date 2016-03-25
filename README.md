@@ -1,19 +1,46 @@
 # gregor
 
-A Clojure library for Kafka 0.9+
+Lightweight Clojure bindings for Kafka 0.9+
 
-## Consumer
+## Example
+
+Here's an example of at-least-once processing (using `mount`):
 
 ```clojure
-(defn do-something!
-    [msgs]
-    ...)
+(def run (atom true))
+(def buffer (atom []))
 
+(defstate consumer
+  :start (gregor/consumer "localhost:9092"
+                            "testgroup"
+                            ["test-topic"]
+                            {"auto.offset.reset" "earliest"
+                             "enable.auto.commit" "false"})
+  :stop (gregor/close consumer))
 
-(let [conf {"bootstrap.servers" "localhost:9092"
-            "key.deserializer"  "org.apache.kafka.common.serialization.StringDeserializer"
-            "value.deserializer" "org.apache.kafka.common.serialization.StringDeserializer"}
-      c (consumer conf ["some-topic"] "some-group")
-      msgs (messages c)]
-  (run! do-something! msgs))
+(defstate producer
+  :start (gregor/producer "localhost:9092")
+  :stop (gregor/close producer))
+
+(defn -main
+  [& args]
+  (mount/start)
+  (repl/set-break-handler! (fn [sig] (reset! run false)))
+  (while @run
+      (let [consumer-records (gregor/poll consumer)]
+        (swap! buffer into recs)
+        (when (>= (count @buffer) 42)
+          (gregor/send producer "other-topic" (process-records @buffer))
+          (gregor/commit-offsets! consumer)
+          (reset! buffer []))))
+  (mount/stop))
 ```
+
+Any transformations over these records happens in process-records. Each record will be a
+map with keys `:value :key :partition :topic :offset`.
+
+
+### Todo
+
+- .listTopics consumer
+- .partitionsFor consumer
