@@ -20,10 +20,10 @@ Here's an example of at-least-once processing (using `mount`):
 
 (defstate consumer
   :start (gregor/consumer "localhost:9092"
-                            "testgroup"
-                            ["test-topic"]
-                            {"auto.offset.reset" "earliest"
-                             "enable.auto.commit" "false"})
+                          "testgroup"
+                          ["test-topic"]
+                          {"auto.offset.reset" "earliest"
+                           "enable.auto.commit" "false"})
   :stop (gregor/close consumer))
 
 (defstate producer
