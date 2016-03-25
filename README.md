@@ -2,7 +2,7 @@
 
 Lightweight Clojure bindings for Kafka 0.9+
 
-[Codox API](https://github.com/weftio/gregor/blob/master/doc/index.html)
+[API](http://weftio.github.io/gregor/)
 
 ## Example
 
