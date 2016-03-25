@@ -7,6 +7,12 @@ Lightweight Clojure bindings for Kafka 0.9+
 Here's an example of at-least-once processing (using `mount`):
 
 ```clojure
+(ns gregor-sample-app.core
+  (:gen-class)
+  (:require [clojure.repl :as repl]
+            [gregor.core :as gregor]
+            [mount.core :as mount :refer [defstate]]))
+
 (def run (atom true))
 (def buffer (atom []))
 
