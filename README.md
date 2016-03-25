@@ -2,6 +2,8 @@
 
 Lightweight Clojure bindings for Kafka 0.9+
 
+[Codox API](https://github.com/weftio/gregor/blob/master/doc/index.html)
+
 ## Example
 
 Here's an example of at-least-once processing (using `mount`):
