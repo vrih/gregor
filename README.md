@@ -44,7 +44,7 @@ Here's an example of at-least-once processing (using `mount`):
   (mount/stop))
 ```
 
-Any transformations over these records happens in process-records. Each record will be a
+Any transformations over these records happen in `process-records`. Each record will be a
 map with keys `:value :key :partition :topic :offset`.
 
 
