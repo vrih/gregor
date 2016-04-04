@@ -1,8 +1,17 @@
-# gregor
+<a href="http://www.weft.io">
+<img src="http://www.weft.io/prod-assets/weftHorizonLogoTrans-08df1aeb53f624b6d89986fd03628f7b258ae6df90e41bb645dde4ceb5c8b724.png" width="125"/></a>
 
-Lightweight Clojure bindings for Kafka 0.9+
+# Gregor
+
+Lightweight Clojure bindings for [Apache Kafka](http://kafka.apache.org/) `0.9.X` and up.
 
 [API](http://weftio.github.io/gregor/)
+
+```clojure
+[io.weft/gregor "0.2.0"]
+```
+
+Gregor wraps most of the Java API for the Kafka [Producer](http://kafka.apache.org/090/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) and [New Consumer](http://kafka.apache.org/090/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html)
 
 ## Example
 
@@ -50,5 +59,5 @@ map with keys `:value :key :partition :topic :offset`.
 
 ### Todo
 
-- .listTopics consumer
-- .partitionsFor consumer
+- `.listTopics` consumer
+- `.partitionsFor` consumer
