@@ -44,8 +44,10 @@ Here's an example of at-least-once processing (using the excellent [`mount`](htt
   (mount/start)
   (repl/set-break-handler! (fn [sig] (reset! run false)))
   (while @run
-    (let [consumer-records (gregor/poll consumer)]
-      (gregor/send producer "other-topic" (process-records consumer-records))
+    (let [consumer-records (gregor/poll consumer)
+          recs (process-records consumer-records)]
+      (doseq [rec recs]
+        (gregor/send producer "other-topic" rec))
       (gregor/commit-offsets! consumer))))
 
 (mount/stop)
