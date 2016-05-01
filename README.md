@@ -1,12 +1,22 @@
-# gregor
+<a href="http://www.weft.io">
+<img src="http://www.weft.io/prod-assets/weftHorizonLogoTrans-08df1aeb53f624b6d89986fd03628f7b258ae6df90e41bb645dde4ceb5c8b724.png" width="125"/></a>
 
-Lightweight Clojure bindings for Kafka 0.9+
+Current Version:
+```clojure
+[io.weft/gregor "0.2.0"]
+```
 
-[API](http://weftio.github.io/gregor/)
+[**API**](http://weftio.github.io/gregor/)
+
+# Gregor
+
+Lightweight Clojure bindings for [Apache Kafka](http://kafka.apache.org/) `0.9.X` and up.
+
+Gregor wraps most of the Java API for the Kafka [Producer](http://kafka.apache.org/090/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html) and [New Consumer](http://kafka.apache.org/090/javadoc/index.html?org/apache/kafka/clients/consumer/KafkaConsumer.html) and is almost feature complete as of `0.2.0`. The intent of this project is to stay very close to the Kafka API instead of adding more advanced features.
 
 ## Example
 
-Here's an example of at-least-once processing (using `mount`):
+Here's an example of at-least-once processing (using the excellent [`mount`](https://github.com/tolitius/mount)):
 
 ```clojure
 (ns gregor-sample-app.core
@@ -41,11 +51,11 @@ Here's an example of at-least-once processing (using `mount`):
 (mount/stop)
 ```
 
-Any transformations over these records happens in process-records. Each record will be a
+Any transformations over these records happen in `process-records`. Each record will be a
 map with keys `:value :key :partition :topic :offset`.
 
 
 ### Todo
 
-- .listTopics consumer
-- .partitionsFor consumer
+- `.listTopics` consumer
+- `.partitionsFor` consumer
