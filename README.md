@@ -48,9 +48,8 @@ Here's an example of at-least-once processing (using the excellent [`mount`](htt
           recs (process-records consumer-records)]
       (doseq [rec recs]
         (gregor/send producer "other-topic" rec))
-      (gregor/commit-offsets! consumer))))
-
-(mount/stop)
+      (gregor/commit-offsets! consumer)))
+  (mount/stop))
 ```
 
 Any transformations over these records happen in `process-records`. Each record will be a
