@@ -80,7 +80,6 @@
   [^Consumer consumer]
   (.unsubscribe consumer))
 
-
 (defn consumer
   "Return a KafkaConsumer.
 
@@ -97,17 +96,20 @@
   value.deserializer.
   "
   ^KafkaConsumer
-  [servers group-id & [topics config]]
-  (let [servers (if (sequential? servers) (str/join "," servers) servers)
-         kc (-> config
-                (assoc "group.id" group-id
-                       "bootstrap.servers" servers
-                       "key.deserializer" str-deserializer
-                       "value.deserializer" str-deserializer)
-                (as-properties)
-                (KafkaConsumer.))]
-    (when (not-empty topics) (subscribe kc topics))
-     kc))
+  ([servers group-id] (consumer servers group-id [] {}))
+  ([servers group-id topics] (consumer servers group-id topics {}))
+  ([servers group-id topics config]
+   (let [servers (if (sequential? servers) (str/join "," servers) servers)
+         kc (-> {"bootstrap.servers" servers
+                 "group.id" group-id
+                 "key.deserializer" str-deserializer
+                 "value.deserializer" str-deserializer}
+              (merge config)
+              (as-properties)
+              (KafkaConsumer.))]
+     (when (not-empty topics)
+       (subscribe kc topics))
+     kc)))
 
 (defn assign!
   "Manually assign topic-partition pairs to this consumer."
@@ -150,7 +152,7 @@
 
   This is an asynchronous call and will not block. Any errors encountered are either
   passed to the callback (if provided) or discarded.
-  
+
   offsets (optional) - commit a map of offsets by partition with associate metadata.
   e.g. {(topic-partition 'my-topic' 1) (offset-and-metadata 1)
         (topic-partition 'other-topic' 2) (offset-and-metadata 67 'such meta')}
@@ -223,7 +225,7 @@
 
   A consumer record is represented as a clojure map with corresponding keys :value, :key,
   :partition, :topic, :offset
-  
+
   timeout - the time, in milliseconds, spent waiting in poll if data is not
   available. If 0, returns immediately with any records that are available now.
   Must not be negative."
@@ -266,13 +268,14 @@
   More info on settings is available here:
   http://kafka.apache.org/081/documentation.html#producerconfigs"
   ^KafkaProducer
-  [servers & [config]]
-  (-> config
-      (assoc "bootstrap.servers" servers
-             "key.serializer" str-serializer
-             "value.serializer" str-serializer)
-      (as-properties)
-      (KafkaProducer.)))
+  ([servers] (producer servers {}))
+  ([servers config]
+   (-> {"bootstrap.servers" servers
+        "key.serializer" str-serializer
+        "value.serializer" str-serializer}
+       (merge config)
+       (as-properties)
+       (KafkaProducer.))))
 
 (defn send
   "Asynchronously send a record to a topic, return a java.util.concurrent.Future"
