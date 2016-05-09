@@ -17,7 +17,6 @@
     (doseq [[k v] m] (.setProperty ps k v))
     ps))
 
-
 (defn- arg-pairs
   [fn-name p1 p2 & pairs]
   (let [pairs (remove nil? pairs)]
@@ -33,7 +32,6 @@
 (defn- ->tps
   [fn-name topic partition tps]
   (into-array TopicPartition (arg-pairs fn-name topic partition tps)))
-
 
 (defn- reify-crl
   [assigned-cb revoked-cb]
@@ -223,7 +221,6 @@
   [^Consumer consumer]
   (.wakeup consumer))
 
-
 (defn poll
   "Return a seq of consumer records currently available to the consumer (via a single poll).
   Fetches sequetially from the last consumed offset.
@@ -254,7 +251,6 @@
   Must not be negative."
   ([^Consumer consumer] (records consumer 100))
   ([^Consumer consumer timeout] (repeatedly #(poll consumer timeout))))
-
 
 (defn producer
   "Return a KafkaProducer.
