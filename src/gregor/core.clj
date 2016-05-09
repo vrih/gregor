@@ -23,31 +23,23 @@
   [^String topic ^Integer partition]
   (TopicPartition. topic partition))
 
-(defn offset-and-metadata
-  "Metadata for when an offset is committed."
-  ([^Long offset] (OffsetAndMetadata. offset))
-  ([^Long offset ^String metadata] (OffsetAndMetadata. offset metadata)))
+(defn- arg-pairs
+  [fn-name p1 p2 pairs]
+  (let [pairs (remove nil? pairs)]
+    (if (even? (count pairs))
+      (->> pairs
+           (concat [p1 p2])
+           (partition 2))
+      (throw (IllegalArgumentException.
+              (str fn-name
+                   " expects even number of optional args, found odd number."))))))
 
-(defn- vectorize
-  [msg t p & tps]
-  (let [tps (remove nil? tps)]
-    (if (even? (count tps))
-      (let [l (if (empty? tps)
-                []
-                (for [[top part] tps] (topic-partition top part)))]
-        (-> (topic-partition t p)
-            (vector)
-            (into l)))
-      (throw (IllegalArgumentException. msg)))))
-
-(defn consumer-record->map
-  [^ConsumerRecord record]
-  {:value (.value record)
-   :key (.key record)
-   :partition (.partition record)
-   :topic (.topic record)
-   :offset (.offset record)})
-
+(defn- ->tps
+  [fn-name topic partition tps]
+  (let [pairs (arg-pairs fn-name topic partition tps)]
+    (->> pairs
+         (map #(apply topic-partition %))
+         (into-array TopicPartition))))
 
 (defn- reify-crl
   [assigned-cb revoked-cb]
@@ -56,6 +48,19 @@
       (assigned-cb partitions))
     (onPartitionsRevoked [this partitions]
       (revoked-cb partitions))))
+
+(defn offset-and-metadata
+  "Metadata for when an offset is committed."
+  ([^Long offset] (OffsetAndMetadata. offset))
+  ([^Long offset ^String metadata] (OffsetAndMetadata. offset metadata)))
+
+(defn consumer-record->map
+  [^ConsumerRecord record]
+  {:value     (.value record)
+   :key       (.key record)
+   :partition (.partition record)
+   :topic     (.topic record)
+   :offset    (.offset record)})
 
 (defn subscribe
   "Subscribe to the given list of topics to get dynamically assigned partitions. Topic
@@ -113,10 +118,10 @@
 
 (defn assign!
   "Manually assign topic-partition pairs to this consumer."
-  [^Consumer consumer ^String topic ^Integer partition & topic-partitions]
-  (let [msg "assign! expects even number of args after partition, found odd number."
-        tps (vectorize msg topic partition topic-partitions)]
-    (.assign consumer tps)))
+  [^Consumer consumer ^String topic ^Integer partition & tps]
+  (->> tps
+       (->tps "assign!" topic partition)
+       (.assign consumer)))
 
 (defn assignment
   "Get the set of partitions currently assigned to this consumer."
@@ -188,10 +193,9 @@
 
 (defn seek-to!
   "Seek to the :beginning or :end offset for each of the given partitions."
-  [consumer destination topic partition & topic-partitions]
+  [consumer destination topic partition & tps]
   (assert (contains? #{:beginning :end} destination) "destination must be :beginning or :end")
-  (let [msg "seek-to expects even number of args after partition, found odd number."
-        tps (into-array TopicPartition (vectorize msg topic partition topic-partitions))]
+  (let [tps (->tps "seek-to!" topic partition tps)]
     (if (= destination :beginning)
       (.seekToBeginning consumer tps)
       (.seekToEnd consumer tps))))
@@ -204,20 +208,23 @@
 
 (defn pause
   "Suspend fetching for a seq of topic name, partition number pairs."
-  [^Consumer consumer topic-partitions]
-  (.pause consumer (mapv #(apply topic-partition %) topic-partitions)))
+  [^Consumer consumer topic partition & tps]
+  (->> tps
+       (->tps "pause" topic partition)
+       (.pause consumer)))
 
 (defn resume
-  "Resume fetching for a seq of topic name, partition number pairs."
-  [^Consumer consumer topic-partitions]
-  (.pause consumer (mapv #(apply topic-partition %) topic-partitions)))
+  "Resume specified partitions which have been paused."
+  [^Consumer consumer topic partition & tps]
+  (->> tps
+       (->tps "resume" topic partition)
+       (.resume consumer)))
 
 (defn wakeup
   "Wakeup the consumer. This method is thread-safe and is useful in particular to abort a
   long poll. The thread which is blocking in an operation will throw WakeupException."
   [^Consumer consumer]
   (.wakeup consumer))
-
 
 (defn poll
   "Return a seq of consumer records currently available to the consumer (via a single poll).
@@ -249,7 +256,6 @@
   Must not be negative."
   ([^Consumer consumer] (records consumer 100))
   ([^Consumer consumer timeout] (repeatedly #(poll consumer timeout))))
-
 
 (defn producer
   "Return a KafkaProducer.
