@@ -17,21 +17,29 @@
     (doseq [[k v] m] (.setProperty ps k v))
     ps))
 
+(defn topic-partition
+  "A topic name and partition number."
+  ^TopicPartition
+  [^String topic ^Integer partition]
+  (TopicPartition. topic partition))
+
 (defn- arg-pairs
-  [fn-name p1 p2 & pairs]
+  [fn-name p1 p2 pairs]
   (let [pairs (remove nil? pairs)]
     (if (even? (count pairs))
       (->> pairs
            (concat [p1 p2])
-           (partition 2)
-           (map #(apply topic-partition %)))
+           (partition 2))
       (throw (IllegalArgumentException.
               (str fn-name
-               " expects even number of args after partition, found odd number."))))))
+                   " expects even number of optional args, found odd number."))))))
 
 (defn- ->tps
   [fn-name topic partition tps]
-  (into-array TopicPartition (arg-pairs fn-name topic partition tps)))
+  (let [pairs (arg-pairs fn-name topic partition tps)]
+    (->> pairs
+         (map #(apply topic-partition %))
+         (into-array TopicPartition))))
 
 (defn- reify-crl
   [assigned-cb revoked-cb]
@@ -41,12 +49,6 @@
     (onPartitionsRevoked [this partitions]
       (revoked-cb partitions))))
 
-(defn topic-partition
-  "A topic name and partition number."
-  ^TopicPartition
-  [^String topic ^Integer partition]
-  (TopicPartition. topic partition))
-
 (defn offset-and-metadata
   "Metadata for when an offset is committed."
   ([^Long offset] (OffsetAndMetadata. offset))
@@ -54,11 +56,11 @@
 
 (defn consumer-record->map
   [^ConsumerRecord record]
-  {:value (.value record)
-   :key (.key record)
+  {:value     (.value record)
+   :key       (.key record)
    :partition (.partition record)
-   :topic (.topic record)
-   :offset (.offset record)})
+   :topic     (.topic record)
+   :offset    (.offset record)})
 
 (defn subscribe
   "Subscribe to the given list of topics to get dynamically assigned partitions. Topic
