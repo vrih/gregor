@@ -8,8 +8,8 @@
   (:require [clojure.string :as str]))
 
 
-(def str-deserializer "org.apache.kafka.common.serialization.StringDeserializer")
-(def str-serializer "org.apache.kafka.common.serialization.StringSerializer")
+(def ^:no-doc str-deserializer "org.apache.kafka.common.serialization.StringDeserializer")
+(def ^:no-doc str-serializer "org.apache.kafka.common.serialization.StringSerializer")
 
 (defn- as-properties
   [m]

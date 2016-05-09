@@ -52,8 +52,9 @@ Here's an example of at-least-once processing (using the excellent [`mount`](htt
   (mount/stop))
 ```
 
-Any transformations over these records happen in `process-records`. Each record will be a
-map -- here's an example with a JSON object as the `:value`:
+Transformations over consumer records are applied in `process-records`. Each record in
+the `seq` returned by `poll` is a map. Here's an example with a JSON object as the
+`:value`:
 
 ```clojure
 {:value "{\"foo\":42}"
