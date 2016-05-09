@@ -59,7 +59,7 @@ map -- here's an example with a JSON object as the `:value`:
 {:value "{\"foo\":42}"
  :key nil
  :partition 0
- :topic test-topic
+ :topic "test-topic"
  :offset 939}
 ```
 
