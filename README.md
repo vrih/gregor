@@ -53,7 +53,15 @@ Here's an example of at-least-once processing (using the excellent [`mount`](htt
 ```
 
 Any transformations over these records happen in `process-records`. Each record will be a
-map with keys `:value :key :partition :topic :offset`.
+map -- here's an example with a JSON object as the `:value`:
+
+```clojure
+{:value "{\"foo\":42}"
+ :key nil
+ :partition 0
+ :topic test-topic
+ :offset 939}
+```
 
 
 ### Todo
