@@ -118,6 +118,7 @@
   [^Consumer consumer ^String topic ^Integer partition & tps]
   (->> tps
        (->tps "assign!" topic partition)
+       (vec)
        (.assign consumer)))
 
 (defn assignment
@@ -190,12 +191,12 @@
 
 (defn seek-to!
   "Seek to the :beginning or :end offset for each of the given partitions."
-  [consumer destination topic partition & tps]
-  (assert (contains? #{:beginning :end} destination) "destination must be :beginning or :end")
+  [consumer offset topic partition & tps]
+  (assert (contains? #{:beginning :end} offset) "offset must be :beginning or :end")
   (let [tps (->tps "seek-to!" topic partition tps)]
-    (if (= destination :beginning)
-      (.seekToBeginning consumer tps)
-      (.seekToEnd consumer tps))))
+    (case offset
+      :beginning (.seekToBeginning consumer tps)
+      :end (.seekToEnd consumer tps))))
 
 (defn position
   "Return the offset of the next record that will be fetched (if a record with that
