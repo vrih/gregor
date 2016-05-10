@@ -202,6 +202,7 @@
 (defn position
   "Return the offset of the next record that will be fetched (if a record with that
   offset exists)."
+  ^Long
   [^Consumer consumer topic partition]
   (.position consumer (topic-partition topic partition)))
 
