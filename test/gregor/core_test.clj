@@ -10,11 +10,12 @@
 (deftest producing
   (let [p (MockProducer. true (StringSerializer.) (StringSerializer.))]
     (send p "unittest" {:a 1 :b "two"})
-    (let [values (.history p)]
-      (is (= {:a 1 :b "two"}
-             (-> values
-                 (first)
-                 (.value))))
+    (send-then p "unittest" {:a 2 :b "three"} (fn [metadata ex]))
+    (let [values (.history p)
+          one (-> values first .value)
+          two (-> values second .value)]
+      (is (= {:a 1 :b "two"} one))
+      (is (= {:a 2 :b "three"} two))
       (.close p))))
 
 (deftest subscribing
@@ -49,21 +50,20 @@
     (is (= nil (committed c "unittest" 0)))
     (poll c)
     (commit-offsets! c)
-    (is (= (offset-and-metadata 2) (committed c "unittest" 0)))
+    (is (= {:offset 2 :metadata nil} (committed c "unittest" 0)))
         (.addRecord c (ConsumerRecord. "unittest" 0 2 0 {:key :b}))
     (poll c)
     (commit-offsets-async! c)
-    (is (= (offset-and-metadata 3) (committed c "unittest" 0)))
+    (is (= {:offset 3 :metadata nil} (committed c "unittest" 0)))
     (.addRecord c (ConsumerRecord. "unittest" 0 3 0 {:key :c}))
     (poll c)
     (commit-offsets-async! c (fn [om ex]))
-    (is (= (offset-and-metadata 4) (committed c "unittest" 0)))
+    (is (= {:offset 4 :metadata nil} (committed c "unittest" 0)))
     (.addRecord c (ConsumerRecord. "unittest" 0 4 0 {:key :c}))
     (poll c)
     (is (= 5 (position c "unittest" 0)))
-    (commit-offsets-async! c {(topic-partition "unittest" 0) (offset-and-metadata 5)}
-                           (fn [om ex]))
-    (is (= (offset-and-metadata 5) (committed c "unittest" 0)))
+    (commit-offsets-async! c [{:topic "unittest" :partition 0 :offset 5}] (fn [om ex]))
+    (is (= {:offset 5 :metadata nil} (committed c "unittest" 0)))
     (seek! c "unittest" 0 2)
     (is (= 2 (position c "unittest" 0)))
     (seek-to! c :beginning "unittest" 0)
