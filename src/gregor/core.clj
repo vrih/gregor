@@ -338,7 +338,7 @@
                             :partition (.partition metadata)
                             :topic (.topic metadata)}
                            ex)
-                 (exception Exception _ nil)))))
+                 (catch Exception _ nil)))))
     (.send producer record)))
 
 (defn send
