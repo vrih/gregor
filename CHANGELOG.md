@@ -7,7 +7,7 @@ All notable changes to Gregor will be documented in this file.
 - Changed the arity of `resume` and `pause` to align with the rest of the API
   (`assoc`-like optional arg pairs)
 
-## Changes
+### Changes
 - Change name of second `seek-to!` arg from `destination` to `offset`.
 
 ### Fixed
