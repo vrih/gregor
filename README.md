@@ -3,7 +3,7 @@
 
 Current Version:
 ```clojure
-[io.weft/gregor "0.2.0"]
+[io.weft/gregor "0.3.0"]
 ```
 
 [**API**](http://weftio.github.io/gregor/)
