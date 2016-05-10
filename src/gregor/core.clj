@@ -189,7 +189,7 @@
 
   A consumer record is represented as a clojure map with corresponding keys :value, :key,
   :partition, :topic, :offset
-  
+
   timeout - the time, in milliseconds, spent waiting in poll if data is not
   available. If 0, returns immediately with any records that are available now.
   Must not be negative."
@@ -292,18 +292,20 @@
   value.deserializer.
   "
   ^KafkaConsumer
-  [servers group-id & [topics config]]
-  (let [servers (if (sequential? servers) (str/join "," servers) servers)
-        c (-> config
-              (assoc "group.id" group-id
-                     "bootstrap.servers" servers
-                     "key.deserializer" str-deserializer
-                     "value.deserializer" str-deserializer)
-              (as-properties)
-              (KafkaConsumer.))]
-    (when (not-empty topics)
-      (subscribe c topics))
-    c))
+  ([servers group-id] (consumer servers group-id [] {}))
+  ([servers group-id topics] (consumer servers group-id topics {}))
+  ([servers group-id topics config]
+   (let [servers (if (sequential? servers) (str/join "," servers) servers)
+         c (-> {"bootstrap.servers" servers
+                "group.id" group-id
+                "key.deserializer" str-deserializer
+                "value.deserializer" str-deserializer}
+               (merge config)
+               (as-properties)
+               (KafkaConsumer.))]
+     (when (not-empty topics)
+       (subscribe c topics))
+     c)))
 
 
 ;;;;;;;;;;;;;;;;;;;;
@@ -318,14 +320,12 @@
   (.flush producer))
 
 (defn ->producer-record
-  (^ProducerRecord
-   [^String topic value]
+  ^ProducerRecord
+  ([^String topic value]
    (ProducerRecord. topic value))
-  (^ProducerRecord
-   [^String topic key value]
+  ([^String topic key value]
    (ProducerRecord. topic key value))
-  (^ProducerRecord
-   [^String topic ^Integer partition key value]
+  ([^String topic ^Integer partition key value]
    (ProducerRecord. topic partition key value)))
 
 (defn- send-record
@@ -344,14 +344,12 @@
 
 (defn send
   "Asynchronously send a record to a topic, providing at least a topic and value."
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic value]
+  ^java.util.concurrent.Future
+  ([^Producer producer ^String topic value]
    (send-record producer (->producer-record topic value)))
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic key value]
+  ([^Producer producer ^String topic key value]
    (send-record producer (->producer-record topic key value)))
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic ^Integer partition key value]
+  ([^Producer producer ^String topic ^Integer partition key value]
    (send-record producer (->producer-record topic partition key value))))
 
 (defn send-then
@@ -363,14 +361,12 @@
       are :topic, :partition, :offset.
     - a java.lang.Exception object: the exception thrown during processing of this
       record."
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic value callback]
+  ^java.util.concurrent.Future
+  ([^Producer producer ^String topic value callback]
    (send-record producer (->producer-record topic value) callback))
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic key value callback]
+  ([^Producer producer ^String topic key value callback]
    (send-record producer (->producer-record topic key value) callback))
-  (^java.util.concurrent.Future
-   [^Producer producer ^String topic ^Integer partition key value callback]
+  ([^Producer producer ^String topic ^Integer partition key value callback]
    (send-record producer (->producer-record topic partition key value) callback)))
 
 (defn producer
@@ -390,10 +386,11 @@
   More info on settings is available here:
   http://kafka.apache.org/081/documentation.html#producerconfigs"
   ^KafkaProducer
-  [servers & [config]]
-  (-> config
-      (assoc "bootstrap.servers" servers
-             "key.serializer" str-serializer
-             "value.serializer" str-serializer)
-      (as-properties)
-      (KafkaProducer.)))
+  ([servers] (producer servers {}))
+  ([servers config]
+   (-> {"bootstrap.servers" servers
+        "key.serializer" str-serializer
+        "value.serializer" str-serializer}
+       (merge config)
+       (as-properties)
+       (KafkaProducer.))))
