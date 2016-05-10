@@ -45,9 +45,9 @@ Here's an example of at-least-once processing (using the excellent [`mount`](htt
   (repl/set-break-handler! (fn [sig] (reset! run false)))
   (while @run
     (let [consumer-records (gregor/poll consumer)
-          recs (process-records consumer-records)]
-      (doseq [rec recs]
-        (gregor/send producer "other-topic" rec))
+          values (process-records consumer-records)]
+      (doseq [v values]
+        (gregor/send producer "other-topic" v))
       (gregor/commit-offsets! consumer)))
   (mount/stop))
 ```
@@ -64,8 +64,12 @@ the `seq` returned by `poll` is a map. Here's an example with a JSON object as t
  :offset 939}
 ```
 
+## Producing
 
-### Todo
+Gregor provides the `send` function for asynchronously sending a record to a topic. There
+are multiple arities which correspond to those of the `ProducerRecord`
+[Java constructor](https://kafka.apache.org/090/javadoc/org/apache/kafka/clients/producer/ProducerRecord.html). If
+you'd like to provide a callback to be invoked when the send has been acknowledged use
+`send-then` instead.
 
-- `.listTopics` consumer
-- `.partitionsFor` consumer
+
