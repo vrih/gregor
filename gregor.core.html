@@ -45,7 +45,7 @@ i.e. lastProcessedMessageOffset + 1.
 offset will be used as the position for the consumer in the event of a failure.
 
 If no offsets have been committed, return nil.
-</pre></div></div><div class="public anchor" id="var-consumer"><h3>consumer</h3><div class="usage"><code>(consumer servers group-id &amp; [topics config])</code></div><div class="doc"><pre class="plaintext">Return a KafkaConsumer.
+</pre></div></div><div class="public anchor" id="var-consumer"><h3>consumer</h3><div class="usage"><code>(consumer servers group-id)</code><code>(consumer servers group-id topics)</code><code>(consumer servers group-id topics config)</code></div><div class="doc"><pre class="plaintext">Return a KafkaConsumer.
 
 Args:
   servers: comma-separated host:port strs or list of strs as bootstrap servers
@@ -71,7 +71,7 @@ A consumer record is represented as a clojure map with corresponding keys :value
 timeout - the time, in milliseconds, spent waiting in poll if data is not
 available. If 0, returns immediately with any records that are available now.
 Must not be negative.</pre></div></div><div class="public anchor" id="var-position"><h3>position</h3><div class="usage"><code>(position consumer topic partition)</code></div><div class="doc"><pre class="plaintext">Return the offset of the next record that will be fetched (if a record with that
-offset exists).</pre></div></div><div class="public anchor" id="var-producer"><h3>producer</h3><div class="usage"><code>(producer servers &amp; [config])</code></div><div class="doc"><pre class="plaintext">Return a KafkaProducer.
+offset exists).</pre></div></div><div class="public anchor" id="var-producer"><h3>producer</h3><div class="usage"><code>(producer servers)</code><code>(producer servers config)</code></div><div class="doc"><pre class="plaintext">Return a KafkaProducer.
 
 The producer is thread safe and sharing a single producer instance across
 threads will generally be faster than having multiple instances.
