@@ -1,4 +1,4 @@
-(defproject io.weft/gregor "0.3.0"
+(defproject com.infectiousmedia/gregor "0.3.0"
   :min-lein-version "2.0.0"
   :description "Lightweight Clojure bindings for Kafka 0.9+"
   :url "https://github.com/weftio/gregor.git"

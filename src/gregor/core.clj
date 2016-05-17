@@ -10,6 +10,8 @@
 
 (def ^:no-doc str-deserializer "org.apache.kafka.common.serialization.StringDeserializer")
 (def ^:no-doc str-serializer "org.apache.kafka.common.serialization.StringSerializer")
+(def ^:no-doc byte-array-deserializer "org.apache.kafka.common.serialization.ByteArrayDeserializer")
+(def ^:no-doc byte-array-serializer "org.apache.kafka.common.serialization.ByteArraySerializer")
 
 (defn- as-properties
   [m]
